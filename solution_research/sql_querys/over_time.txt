@@ -1,0 +1,11 @@
+SELECT
+  DATE_TRUNC('minute', timestamp) AS time,
+  AVG(eyes_open) AS avg_eyes_open
+FROM
+  biometric_quality
+WHERE
+  eyes_open > 0.90
+GROUP BY
+  time
+ORDER BY
+  time ASC

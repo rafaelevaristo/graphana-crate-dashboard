@@ -1,0 +1,12 @@
+SELECT
+  timestamp,
+  photo_id,
+  eyes_open,
+  overall_quality_score
+FROM
+  biometric_quality
+WHERE
+  eyes_open > 0.90
+ORDER BY
+  timestamp DESC
+LIMIT 100 
