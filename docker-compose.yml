@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  cratedb:
+    image: crate:5.4.4
+    container_name: cratedb
+    ports:
+      - "4200:4200"  # CrateDB Admin UI
+      - "5432:5432"  # PostgreSQL protocol port
+    volumes:
+      - crate_data:/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    environment:
+      - CRATE_HEAP_SIZE=1g
+    command: >
+      crate
+      -Cdiscovery.type=single-node
+      -Cnetwork.host=_site_
+      -Chttp.cors.enabled=true
+      -Chttp.cors.allow-origin="*"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4200 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      cratedb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Optional: Data ingestion service (Python Flask API)
+  data-ingester:
+    image: python:3.11-slim
+    container_name: data_ingester
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./ingester:/app
+    working_dir: /app
+    command: >
+      sh -c "
+      pip install flask crate pandas requests &&
+      python app.py
+      "
+    depends_on:
+      cratedb:
+        condition: service_healthy
+    environment:
+      - CRATE_HOST=cratedb
+      - CRATE_PORT=4200
+
+volumes:
+  crate_data:
+  grafana_data:
+
+networks:
+  default:
+    name: biometric_network
